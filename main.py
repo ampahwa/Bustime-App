@@ -19,6 +19,8 @@ import datetime
 import time
 import iso8601
 import math
+import calendar
+import pytz
 from flask import Flask, make_response, request, jsonify, render_template
 
 app = Flask(__name__)
@@ -42,8 +44,14 @@ def get_request1():
 
         #Time parsing:
 
-        arrival_time = time.mktime(iso8601.parse_date(busTime).timetuple())
-        current_time = time.mktime(datetime.datetime.now().timetuple())
+        iso_time = iso8601.parse_date(busTime)
+        curr_time = (datetime.datetime.now())
+        local = pytz.timezone('America/New_York')
+        local_dt = local.localize(curr_time)
+        utc_dt = curr_time.astimezone(pytz.utc)
+        utc_dt2 = iso_time.astimezone(pytz.utc)
+        arrival_time = calendar.timegm(utc_dt2.timetuple())
+        current_time = calendar.timegm(utc_dt.timetuple())
         eta = math.floor(math.floor((arrival_time - current_time) / 60 * 100) / 100)
 
         #Cleans up fulfillment text
@@ -56,7 +64,7 @@ def get_request1():
             result = {'fulfillmentText': "The bus is " + str(eta) + " minutes away or " + str(stops) + " stops away"}            
 
         else:
-            result = {'fulfillmentText': "The bus is " + str(eta) + " minutes away or " + str(distance) + " and " + str(stops) + " stops away"}
+            result = {'fulfillmentText': "The bus is " + str(eta) + " minutes away or " + str(stops) + " stops away"}
 
         return jsonify(result)
 
@@ -72,10 +80,17 @@ def hello():
     obj = requests.get('http://bustime.mta.info/api/siri/stop-monitoring.json', params=payload)
     res = obj.json()
     busTime = res['Siri']['ServiceDelivery']['StopMonitoringDelivery'][0]['MonitoredStopVisit'][0]['MonitoredVehicleJourney']['MonitoredCall']["ExpectedArrivalTime"]
-    arrival_time = time.mktime(iso8601.parse_date(busTime).timetuple())
-    current_time = time.mktime(datetime.datetime.now().timetuple())
+    distance = res['Siri']['ServiceDelivery']['StopMonitoringDelivery'][0]['MonitoredStopVisit'][0]['MonitoredVehicleJourney']['MonitoredCall']['Extensions']['Distances']['PresentableDistance']
+    iso_time = iso8601.parse_date(busTime)
+    curr_time = (datetime.datetime.now())
+    local = pytz.timezone('America/New_York')
+    local_dt = local.localize(curr_time)
+    utc_dt = curr_time.astimezone(pytz.utc)
+    utc_dt2 = iso_time.astimezone(pytz.utc)
+    arrival_time = calendar.timegm(utc_dt2.timetuple())
+    current_time = calendar.timegm(utc_dt.timetuple())
     eta = math.floor(math.floor((arrival_time - current_time) / 60 * 100) / 100)
-    return render_template('index.html', eta = eta)
+    return render_template('index.html', eta = eta, current_time = current_time, arrival_time = arrival_time, distance = distance)
 
 if __name__ == "__main__":
     app.run("0.0.0.0", debug=True, port=8080)
